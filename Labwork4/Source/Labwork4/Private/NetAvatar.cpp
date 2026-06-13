@@ -15,9 +15,12 @@ ANetAvatar::ANetAvatar()
 void ANetAvatar::BeginPlay()
 {
     Super::BeginPlay();
+
     Camera->bUsePawnControlRotation = false;
     SpringArm->bUsePawnControlRotation = true;
+
     bUseControllerRotationYaw = false;
+
     GetCharacterMovement()->bOrientRotationToMovement = true;
 }
 
@@ -27,6 +30,7 @@ void ANetAvatar::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent
 
     PlayerInputComponent->BindAxis("Turn", this, &ACharacter::AddControllerYawInput);
     PlayerInputComponent->BindAxis("LookUp", this, &ACharacter::AddControllerPitchInput);
+
     PlayerInputComponent->BindAxis("MoveForward", this, &ANetAvatar::MoveForward);
     PlayerInputComponent->BindAxis("MoveRight", this, &ANetAvatar::MoveRight);
 
@@ -37,55 +41,65 @@ void ANetAvatar::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent
 void ANetAvatar::MoveForward(float Scale)
 {
     FRotator Rotation = GetController()->GetControlRotation();
-    FRotator YawRotation(0.0f, Rotation.Yaw, 0.0f);
+    FRotator YawRotation = FRotator(0.0f, Rotation.Yaw, 0.0f);
+
     FVector ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
+
     AddMovementInput(ForwardDirection, Scale * MovementScale);
 }
 
 void ANetAvatar::MoveRight(float Scale)
 {
     FRotator Rotation = GetController()->GetControlRotation();
-    FRotator YawRotation(0.0f, Rotation.Yaw, 0.0f);
+    FRotator YawRotation = FRotator(0.0f, Rotation.Yaw, 0.0f);
+
     FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
+
     AddMovementInput(RightDirection, Scale * MovementScale);
 }
 
 void ANetAvatar::RunPressed()
 {
-    if (IsLocallyControlled())
+    if (!IsLocallyControlled())
     {
-        ServerSetRunning(true);
+        return;
     }
+
+    ServerSetRunning(true);
 }
 
 void ANetAvatar::RunReleased()
 {
-    if (IsLocallyControlled())
+    if (!IsLocallyControlled())
     {
-        ServerSetRunning(false);
+        return;
     }
+
+    ServerSetRunning(false);
 }
 
 void ANetAvatar::ServerSetRunning_Implementation(bool bRunning)
 {
     bIsRunning = bRunning;
+
     OnRep_IsRunning();
 }
 
 void ANetAvatar::OnRep_IsRunning()
 {
+    float MaxSpeed = 300.0f;
+
     if (bIsRunning)
     {
-        GetCharacterMovement()->MaxWalkSpeed = 600.0f;
+        MaxSpeed = 600.0f;
     }
-    else
-    {
-        GetCharacterMovement()->MaxWalkSpeed = 300.0f;
-    }
+
+    GetCharacterMovement()->MaxWalkSpeed = MaxSpeed;
 }
 
 void ANetAvatar::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
     DOREPLIFETIME(ANetAvatar, bIsRunning);
 }

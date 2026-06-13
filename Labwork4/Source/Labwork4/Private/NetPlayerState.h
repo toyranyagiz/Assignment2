@@ -19,11 +19,12 @@ public:
     UPROPERTY(BlueprintReadOnly, Replicated)
     int PlayerIndex;
 
-    EPlayerTeam TeamID;
-    EGameResults Result;
-
     UPROPERTY(BlueprintReadOnly, Replicated)
     float ClosestApproachToBlue;
+
+    EPlayerTeam TeamID;
+
+    EGameResults Result;
 
 private:
     UFUNCTION()

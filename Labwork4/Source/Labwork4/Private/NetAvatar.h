@@ -14,15 +14,17 @@ class ANetAvatar : public ANetBaseCharacter
 public:
     ANetAvatar();
 
+    virtual void BeginPlay() override;
+
+    virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
+
+    virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
     UPROPERTY(EditAnywhere)
     UCameraComponent* Camera;
 
     UPROPERTY(EditAnywhere)
     USpringArmComponent* SpringArm;
-
-    virtual void BeginPlay() override;
-    virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
-    virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
     UPROPERTY(BlueprintReadWrite)
     float MovementScale;
@@ -37,9 +39,11 @@ public:
     void ServerSetRunning(bool bRunning);
 
     void RunPressed();
+
     void RunReleased();
 
 private:
     void MoveForward(float Scale);
+
     void MoveRight(float Scale);
 };

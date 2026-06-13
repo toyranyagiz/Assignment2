@@ -33,18 +33,24 @@ public:
     float MatchTime;
 
 private:
+    AActor* GetPlayerStart(FString Name, int Index);
+
+    AActor* AssignTeamAndPlayerStart(AController* Player);
+
+    void Timer();
+
     int TotalPlayerCount;
+
     int TotalGames;
+
     int PlayerStartIndex;
+
     int ConnectedPlayers;
 
     FTimerHandle SwapTimerHandle;
+
     TArray<APlayerController*> AllPlayers;
 
     UPROPERTY()
     ANetPlayerState* NextBluePlayer;
-
-    AActor* GetPlayerStart(FString Name, int Index);
-    AActor* AssignTeamAndPlayerStart(AController* Player);
-    void Timer();
 };

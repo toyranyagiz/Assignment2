@@ -19,22 +19,45 @@ ANetGameMode::ANetGameMode()
 
 AActor* ANetGameMode::GetPlayerStart(FString Name, int Index)
 {
-    FName PSName = Index < 0 ? *Name : *FString::Printf(TEXT("%s%d"), *Name, Index % 4);
+    FName PSName;
+
+    if (Index < 0)
+    {
+        PSName = *Name;
+    }
+    else
+    {
+        PSName = *FString::Printf(TEXT("%s%d"), *Name, Index % 4);
+    }
 
     for (TActorIterator<APlayerStart> It(GWorld); It; ++It)
     {
-        if (APlayerStart* PS = Cast<APlayerStart>(*It))
+        APlayerStart* PS = Cast<APlayerStart>(*It);
+
+        if (!PS)
         {
-            if (PS->PlayerStartTag == PSName) return *It;
+            continue;
+        }
+
+        if (PS->PlayerStartTag == PSName)
+        {
+            return *It;
         }
     }
+
     return nullptr;
 }
 
 AActor* ANetGameMode::ChoosePlayerStart_Implementation(AController* Player)
 {
     AActor* Start = AssignTeamAndPlayerStart(Player);
-    return Start ? Start : Super::ChoosePlayerStart_Implementation(Player);
+
+    if (Start)
+    {
+        return Start;
+    }
+
+    return Super::ChoosePlayerStart_Implementation(Player);
 }
 
 AActor* ANetGameMode::AssignTeamAndPlayerStart(AController* Player)
@@ -42,29 +65,68 @@ AActor* ANetGameMode::AssignTeamAndPlayerStart(AController* Player)
     AActor* Start = nullptr;
     ANetPlayerState* State = Player->GetPlayerState<ANetPlayerState>();
 
-    if (!State) return Start;
+    if (!State)
+    {
+        return Start;
+    }
 
     if (TotalGames == 0)
-        State->TeamID = TotalPlayerCount == 0 ? EPlayerTeam::TEAM_Blue : EPlayerTeam::TEAM_Red;
+    {
+        if (TotalPlayerCount == 0)
+        {
+            State->TeamID = EPlayerTeam::TEAM_Blue;
+        }
+        else
+        {
+            State->TeamID = EPlayerTeam::TEAM_Red;
+        }
+    }
     else
-        State->TeamID = (State == NextBluePlayer) ? EPlayerTeam::TEAM_Blue : EPlayerTeam::TEAM_Red;
+    {
+        if (State == NextBluePlayer)
+        {
+            State->TeamID = EPlayerTeam::TEAM_Blue;
+        }
+        else
+        {
+            State->TeamID = EPlayerTeam::TEAM_Red;
+        }
+    }
 
     State->ClosestApproachToBlue = 550.0f;
-    Start = State->TeamID == EPlayerTeam::TEAM_Blue ? GetPlayerStart("Blue", -1) : GetPlayerStart("Red", PlayerStartIndex++);
+
+    if (State->TeamID == EPlayerTeam::TEAM_Blue)
+    {
+        Start = GetPlayerStart("Blue", -1);
+    }
+    else
+    {
+        Start = GetPlayerStart("Red", PlayerStartIndex++);
+    }
 
     State->PlayerIndex = TotalPlayerCount++;
     AllPlayers.Add(Cast<APlayerController>(Player));
 
     ConnectedPlayers++;
 
+    ANetGameState* GState = GetGameState<ANetGameState>();
+
     if (ConnectedPlayers == 1)
     {
-        ANetGameState* GState = GetGameState<ANetGameState>();
-        if (GState) GState->TimeRemaining = FMath::RoundToInt(MatchTime);
+        if (GState)
+        {
+            GState->TimeRemaining = FMath::RoundToInt(MatchTime);
+        }
     }
     else if (ConnectedPlayers >= 2)
     {
-        GetWorld()->GetTimerManager().SetTimer(SwapTimerHandle, this, &ANetGameMode::Timer, 1.0f, true);
+        GetWorld()->GetTimerManager().SetTimer(
+            SwapTimerHandle,
+            this,
+            &ANetGameMode::Timer,
+            1.0f,
+            true
+        );
     }
 
     return Start;
@@ -74,7 +136,13 @@ void ANetGameMode::Timer()
 {
     ANetGameState* GState = GetGameState<ANetGameState>();
 
-    if (!GState || GState->WinningPlayer >= 0)
+    if (!GState)
+    {
+        GetWorld()->GetTimerManager().ClearTimer(SwapTimerHandle);
+        return;
+    }
+
+    if (GState->WinningPlayer >= 0)
     {
         GetWorld()->GetTimerManager().ClearTimer(SwapTimerHandle);
         return;
@@ -88,37 +156,64 @@ void ANetGameMode::Timer()
 
     GState->TimeRemaining--;
 
-    if (GState->TimeRemaining <= 0)
+    if (GState->TimeRemaining > 0)
     {
-        GetWorld()->GetTimerManager().ClearTimer(SwapTimerHandle);
-        SwapPlayers();
+        return;
     }
+
+    GetWorld()->GetTimerManager().ClearTimer(SwapTimerHandle);
+    SwapPlayers();
 }
 
 void ANetGameMode::AvatarsOverlapped(ANetAvatar* AvatarA, ANetAvatar* AvatarB)
 {
-    if (!AvatarA || !AvatarB) return;
+    if (!AvatarA || !AvatarB)
+    {
+        return;
+    }
 
     ANetGameState* GState = GetGameState<ANetGameState>();
-    if (!GState || GState->WinningPlayer >= 0) return;
+
+    if (!GState)
+    {
+        return;
+    }
+
+    if (GState->WinningPlayer >= 0)
+    {
+        return;
+    }
 
     ANetPlayerState* StateA = AvatarA->GetPlayerState<ANetPlayerState>();
     ANetPlayerState* StateB = AvatarB->GetPlayerState<ANetPlayerState>();
 
-    if (!StateA || !StateB) return;
-    if (StateA->TeamID == StateB->TeamID) return;
+    if (!StateA || !StateB)
+    {
+        return;
+    }
+
+    if (StateA->TeamID == StateB->TeamID)
+    {
+        return;
+    }
 
     GetWorld()->GetTimerManager().ClearTimer(SwapTimerHandle);
 
+    ANetPlayerState* WinnerState = nullptr;
+
     if (StateA->TeamID == EPlayerTeam::TEAM_Red)
     {
-        GState->WinningPlayer = StateA->PlayerIndex;
-        NextBluePlayer = StateA;
+        WinnerState = StateA;
     }
     else
     {
-        GState->WinningPlayer = StateB->PlayerIndex;
-        NextBluePlayer = StateB;
+        WinnerState = StateB;
+    }
+
+    if (WinnerState)
+    {
+        GState->WinningPlayer = WinnerState->PlayerIndex;
+        NextBluePlayer = WinnerState;
     }
 
     AvatarA->GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Pawn, ECR_Ignore);
@@ -128,35 +223,68 @@ void ANetGameMode::AvatarsOverlapped(ANetAvatar* AvatarA, ANetAvatar* AvatarB)
     TotalGames++;
 
     FTimerHandle EndGameTimerHandle;
-    GWorld->GetTimerManager().SetTimer(EndGameTimerHandle, this, &ANetGameMode::EndGame, 2.5f, false);
+
+    GWorld->GetTimerManager().SetTimer(
+        EndGameTimerHandle,
+        this,
+        &ANetGameMode::EndGame,
+        2.5f,
+        false
+    );
 }
 
 void ANetGameMode::EndGame()
 {
     PlayerStartIndex = 0;
     ConnectedPlayers = 0;
-    GetGameState<ANetGameState>()->WinningPlayer = -1;
-    GetGameState<ANetGameState>()->TimeRemaining = 0;
+
+    ANetGameState* GState = GetGameState<ANetGameState>();
+
+    if (GState)
+    {
+        GState->WinningPlayer = -1;
+        GState->TimeRemaining = 0;
+    }
 
     for (APlayerController* Player : AllPlayers)
     {
+        if (!Player)
+        {
+            continue;
+        }
+
         APawn* Pawn = Player->GetPawn();
+
         Player->UnPossess();
-        if (Pawn) Pawn->Destroy();
+
+        if (Pawn)
+        {
+            Pawn->Destroy();
+        }
+
         Player->StartSpot.Reset();
         RestartPlayer(Player);
     }
 
-    GetGameState<ANetGameState>()->TriggerRestart();
+    if (GState)
+    {
+        GState->TriggerRestart();
+    }
 }
-
-
-//SWAP PLAYERS: Swaps 1 player from red team and 1 player from blue team by random selection
 
 void ANetGameMode::SwapPlayers()
 {
     ANetGameState* GState = GetGameState<ANetGameState>();
-    if (!GState || GState->WinningPlayer >= 0) return;
+
+    if (!GState)
+    {
+        return;
+    }
+
+    if (GState->WinningPlayer >= 0)
+    {
+        return;
+    }
 
     TArray<ANetPlayerState*> RedPlayers;
     int BluePlayerIndex = -1;
@@ -164,33 +292,67 @@ void ANetGameMode::SwapPlayers()
     for (TActorIterator<ANetAvatar> It(GWorld); It; ++It)
     {
         ANetPlayerState* PS = It->GetPlayerState<ANetPlayerState>();
-        if (!PS) continue;
+
+        if (!PS)
+        {
+            continue;
+        }
 
         if (PS->TeamID == EPlayerTeam::TEAM_Blue)
+        {
             BluePlayerIndex = PS->PlayerIndex;
-        else if (PS->TeamID == EPlayerTeam::TEAM_Red)
+            continue;
+        }
+
+        if (PS->TeamID == EPlayerTeam::TEAM_Red)
+        {
             RedPlayers.Add(PS);
+        }
     }
 
     if (BluePlayerIndex != -1)
+    {
         GState->WinningPlayer = BluePlayerIndex;
+    }
 
     if (RedPlayers.Num() > 0)
-        NextBluePlayer = RedPlayers[FMath::RandRange(0, RedPlayers.Num() - 1)];
+    {
+        const int RandomIndex = FMath::RandRange(0, RedPlayers.Num() - 1);
+        NextBluePlayer = RedPlayers[RandomIndex];
+    }
 
     GState->OnVictory();
     TotalGames++;
 
     FTimerHandle EndGameTimerHandle;
-    GWorld->GetTimerManager().SetTimer(EndGameTimerHandle, this, &ANetGameMode::EndGame, 2.5f, false);
+
+    GWorld->GetTimerManager().SetTimer(
+        EndGameTimerHandle,
+        this,
+        &ANetGameMode::EndGame,
+        2.5f,
+        false
+    );
 }
 
 void ANetGameMode::ReportDash(ANetAvatar* DashingAvatar, FVector DashStart, FVector DashEnd)
 {
-    if (!DashingAvatar) return;
+    if (!DashingAvatar)
+    {
+        return;
+    }
 
     ANetPlayerState* DasherState = DashingAvatar->GetPlayerState<ANetPlayerState>();
-    if (!DasherState || DasherState->TeamID != EPlayerTeam::TEAM_Red) return;
+
+    if (!DasherState)
+    {
+        return;
+    }
+
+    if (DasherState->TeamID != EPlayerTeam::TEAM_Red)
+    {
+        return;
+    }
 
     FVector BlueLoc = FVector::ZeroVector;
     bool bFoundBlue = false;
@@ -198,19 +360,32 @@ void ANetGameMode::ReportDash(ANetAvatar* DashingAvatar, FVector DashStart, FVec
     for (TActorIterator<ANetAvatar> It(GWorld); It; ++It)
     {
         ANetPlayerState* PS = It->GetPlayerState<ANetPlayerState>();
-        if (PS && PS->TeamID == EPlayerTeam::TEAM_Blue)
+
+        if (!PS)
         {
-            BlueLoc = It->GetActorLocation();
-            bFoundBlue = true;
-            break;
+            continue;
         }
+
+        if (PS->TeamID != EPlayerTeam::TEAM_Blue)
+        {
+            continue;
+        }
+
+        BlueLoc = It->GetActorLocation();
+        bFoundBlue = true;
+        break;
     }
 
-    if (!bFoundBlue) return;
+    if (!bFoundBlue)
+    {
+        return;
+    }
 
     FVector ClosestPoint = FMath::ClosestPointOnSegment(BlueLoc, DashStart, DashEnd);
     float Dist = FVector::Dist(BlueLoc, ClosestPoint);
 
     if (Dist < DasherState->ClosestApproachToBlue)
+    {
         DasherState->ClosestApproachToBlue = Dist;
+    }
 }

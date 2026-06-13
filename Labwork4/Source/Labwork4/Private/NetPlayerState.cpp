@@ -19,11 +19,20 @@ void ANetPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
 void ANetPlayerState::OnRep_PlayerInfo()
 {
     ANetBaseCharacter* Char = Cast<ANetBaseCharacter>(GetPawn());
-    if (Char) {
+
+    if (Char)
+    {
         Char->PlayerInfoReceived = true;
+        return;
     }
-    else {
-        FTimerHandle PlayerInfoUpdateTimer;
-        GWorld->GetTimerManager().SetTimer(PlayerInfoUpdateTimer, this, &ANetPlayerState::OnRep_PlayerInfo, 0.25f, false);
-    }
+
+    FTimerHandle PlayerInfoUpdateTimer;
+
+    GWorld->GetTimerManager().SetTimer(
+        PlayerInfoUpdateTimer,
+        this,
+        &ANetPlayerState::OnRep_PlayerInfo,
+        0.25f,
+        false
+    );
 }

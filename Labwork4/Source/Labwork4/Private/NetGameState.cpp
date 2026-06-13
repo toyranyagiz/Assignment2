@@ -19,9 +19,14 @@ void ANetGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLif
 
 void ANetGameState::OnRep_Winner()
 {
-    if (WinningPlayer >= 0) {
-        OnVictory();
+    const bool bHasWinner = WinningPlayer >= 0;
+
+    if (!bHasWinner)
+    {
+        return;
     }
+
+    OnVictory();
 }
 
 void ANetGameState::TriggerRestart_Implementation()
@@ -34,9 +39,17 @@ ANetPlayerState* ANetGameState::GetPlayerStateByIndex(int PlayerIndex)
     for (APlayerState* PS : PlayerArray)
     {
         ANetPlayerState* State = Cast<ANetPlayerState>(PS);
-        if (State && State->PlayerIndex == PlayerIndex) {
+
+        if (!State)
+        {
+            continue;
+        }
+
+        if (State->PlayerIndex == PlayerIndex)
+        {
             return State;
         }
     }
+
     return nullptr;
 }

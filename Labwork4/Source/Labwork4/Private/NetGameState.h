@@ -14,6 +14,11 @@ class ANetGameState : public AGameStateBase
 public:
     ANetGameState();
 
+    virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
+    UFUNCTION(BlueprintCallable)
+    ANetPlayerState* GetPlayerStateByIndex(int PlayerIndex);
+
     UFUNCTION(BlueprintImplementableEvent)
     void OnVictory();
 
@@ -23,17 +28,12 @@ public:
     UFUNCTION(NetMulticast, Reliable)
     void TriggerRestart();
 
-    UFUNCTION(BlueprintCallable)
-    ANetPlayerState* GetPlayerStateByIndex(int PlayerIndex);
+    UFUNCTION()
+    void OnRep_Winner();
 
     UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_Winner)
     int WinningPlayer;
 
     UPROPERTY(BlueprintReadOnly, Replicated)
     int32 TimeRemaining;
-
-    UFUNCTION()
-    void OnRep_Winner();
-
-    virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 };

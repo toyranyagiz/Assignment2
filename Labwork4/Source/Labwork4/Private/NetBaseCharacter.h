@@ -42,7 +42,9 @@ public:
     ANetBaseCharacter();
 
     virtual void BeginPlay() override;
+
     virtual void OnConstruction(const FTransform& Transform) override;
+
     virtual void Tick(float DeltaTime) override;
 
     UFUNCTION(BlueprintPure)
@@ -92,10 +94,11 @@ public:
     bool PlayerInfoReceived;
 
 private:
-    int BodyPartIndices[(int)EBodyPart::BP_COUNT];
-
     static FSMeshAssetList* GetBodyPartList(EBodyPart part, bool isFemale);
+
     void UpdateBodyParts();
+
+    int BodyPartIndices[(int)EBodyPart::BP_COUNT];
 
     FTimerHandle ClientDataCheckTimer;
 };
